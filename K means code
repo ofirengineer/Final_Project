@@ -1,0 +1,79 @@
+import pandas as pd
+import numpy as np
+from sklearn.preprocessing import StandardScaler
+from sklearn.decomposition import PCA
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.cluster import KMeans
+
+# Step 1: Load the data
+# Assumption: The table named Combined_SummaryTable is already in a DataFrame.
+# If your table is in a CSV file, you can load it like this (replace 'your_data.csv' with your file name):
+Combined_SummaryTable = pd.read_csv('Combined_SummaryTable.csv')
+print(Combined_SummaryTable.columns)
+
+# Step 2: Prepare the data
+# Here, define the columns you want to analyze. Usually these are numeric columns.
+# If you have irrelevant columns (like IDs, names, etc.), remove them.
+# Let's assume the columns for analysis are named 'feature1', 'feature2', 'feature3', etc.
+features = Combined_SummaryTable.columns  # or a list of relevant column names
+x = Combined_SummaryTable.drop(columns='filename')
+
+# Step 3: Standardize the data
+# It is important to standardize before PCA so that all variables contribute equally.
+x = StandardScaler().fit_transform(x)
+pca = PCA(n_components=2)
+principal_components = pca.fit_transform(x)
+
+# Create a new DataFrame for the PCA components
+pca_df = pd.DataFrame(data=principal_components,
+                      columns=['PC1', 'PC2'])
+
+wcss = []
+for k in range(1, 11):
+    kmeans = KMeans(n_clusters=k, random_state=42, n_init='auto')
+    kmeans.fit(x)
+    wcss.append(kmeans.inertia_)
+
+# Create the elbow plot
+plt.figure(figsize=(10, 6))
+plt.plot(range(1, 11), wcss, marker='o', linestyle='--')
+plt.title('Elbow Method For Optimal k')
+plt.xlabel('Number of Clusters (k)')
+plt.ylabel('WCSS (Inertia)')
+plt.grid(True)
+plt.show()
+
+# Step 3: Run K-Means with the chosen number of clusters (example: k=4)
+# Replace the value of k according to the elbow plot result
+optimal_k = 3
+kmeans_final = KMeans(n_clusters=optimal_k, random_state=42, n_init='auto')
+clusters = kmeans_final.fit_predict(x)
+
+# Add the results to the original table
+Combined_SummaryTable['Cluster'] = clusters
+
+# Step 4: Print the number of points in each cluster
+print(Combined_SummaryTable['Cluster'].value_counts())
+
+# Step 5: Visualize the clusters based on PC1 and PC2 (if PCA was performed earlier)
+# If you performed PCA, you can use the first two principal components to display the clusters.
+# Assume pca_df is the DataFrame you created with the PCA components.
+# If you do not have PCA results, you can plot the clusters based on any two features from the original table.
+try:
+    plt.figure(figsize=(10, 8))
+    sns.scatterplot(x=pca_df['PC1'], y=pca_df['PC2'], hue=Combined_SummaryTable['Cluster'], palette='viridis', s=100)
+    plt.title('K-Means Clusters on PCA Components')
+    plt.xlabel('Principal Component 1')
+    plt.ylabel('Principal Component 2')
+    plt.grid(True)
+    plt.show()
+except NameError:
+    print("PCA results not found. Plotting against first two features.")
+    plt.figure(figsize=(10, 8))
+    sns.scatterplot(x=x.columns[0], y=x.columns[1], hue=Combined_SummaryTable['Cluster'], data=Combined_SummaryTable, palette='viridis', s=100)
+    plt.title('K-Means Clusters on Original Features')
+    plt.xlabel(x.columns[0])
+    plt.ylabel(x.columns[1])
+    plt.grid(True)
+    plt.show()
